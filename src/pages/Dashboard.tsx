@@ -667,6 +667,7 @@ export default function Dashboard() {
 
         {/* Quick Actions Section */}
         <QuickActions />
+      </div>
     </DashboardLayout>
   );
 }
