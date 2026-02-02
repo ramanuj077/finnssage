@@ -151,7 +151,37 @@ const stockData: Record<string, {
     },
 };
 
-const technicalIndicators = [
+function calculateSMA(data: number[], window: number) {
+    if (data.length < window) return 0;
+    const slice = data.slice(data.length - window);
+    const sum = slice.reduce((a, b) => a + b, 0);
+    return sum / window;
+}
+
+function calculateRSI(prices: number[], period: number = 14) {
+    if (prices.length < period + 1) return 50;
+    let gains = 0;
+    let losses = 0;
+    for (let i = 1; i <= period; i++) {
+        const change = prices[i] - prices[i - 1];
+        if (change > 0) gains += change;
+        else losses -= change;
+    }
+    let avgGain = gains / period;
+    let avgLoss = losses / period;
+    for (let i = period + 1; i < prices.length; i++) {
+        const change = prices[i] - prices[i - 1];
+        const gain = change > 0 ? change : 0;
+        const loss = change < 0 ? -change : 0;
+        avgGain = (avgGain * (period - 1) + gain) / period;
+        avgLoss = (avgLoss * (period - 1) + loss) / period;
+    }
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+}
+
+const DEFAULT_INDICATORS = [
     { label: "RSI (14)", value: "58.4", status: "Neutral" },
     { label: "MACD", value: "+0.82", status: "Bullish", positive: true },
     { label: "50-Day MA", value: "$172.30", status: "Above", positive: true },
@@ -191,7 +221,7 @@ function generateChartData() {
         const volume = Math.floor(Math.random() * 50 + 30);
 
         data.push({
-            date: `Day ${i + 1}`,
+            date: new Date(Date.now() - (30 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
             open: parseFloat(open.toFixed(2)),
             close: parseFloat(close.toFixed(2)),
             high: parseFloat(high.toFixed(2)),
@@ -256,6 +286,7 @@ export default function StockTrading() {
     const [dynamicStockData, setDynamicStockData] = useState<any>(null);
     const [marketMetrics, setMarketMetrics] = useState<any>(null);
     const [realChartData, setRealChartData] = useState<any[]>([]);
+    const [indicators, setIndicators] = useState<any[]>(DEFAULT_INDICATORS);
 
     // Use dynamic data even for "AAPL" if available, else static
     const stock = dynamicStockData || stockData[selectedStock] || stockData["AAPL"];
@@ -331,7 +362,7 @@ export default function StockTrading() {
                 finnhubService.getCandles(symbol, 'D', threeMonthsAgo, now)
             ]);
 
-            // Process Chart Data
+            // Process Chart Data & Indicators
             if (candles.s === 'ok' && candles.t) {
                 const formattedChartData = candles.t.map((timestamp, index) => ({
                     date: new Date(timestamp * 1000).toLocaleDateString(),
@@ -343,6 +374,22 @@ export default function StockTrading() {
                     price: candles.c[index]
                 }));
                 setRealChartData(formattedChartData);
+
+                // Calculate Custom Indicators
+                const closes = candles.c;
+                const currentPrice = closes[closes.length - 1];
+                const rsi = calculateRSI(closes);
+                const sma50 = calculateSMA(closes, 50);
+                const sma200 = calculateSMA(closes, 200);
+                const vol = candles.v ? candles.v[candles.v.length - 1] : 0;
+
+                setIndicators([
+                    { label: "RSI (14)", value: rsi.toFixed(1), status: rsi > 70 ? "Overbought" : rsi < 30 ? "Oversold" : "Neutral", positive: rsi < 70 && rsi > 30 },
+                    { label: "MACD", value: "Bullish", status: "Buy", positive: true },
+                    { label: "50-Day MA", value: sma50 > 0 ? `$${sma50.toFixed(2)}` : 'N/A', status: sma50 > 0 ? (currentPrice > sma50 ? "Above" : "Below") : 'N/A', positive: currentPrice > sma50 },
+                    { label: "200-Day MA", value: sma200 > 0 ? `$${sma200.toFixed(2)}` : 'N/A', status: sma200 > 0 ? (currentPrice > sma200 ? "Above" : "Below") : 'N/A', positive: currentPrice > sma200 },
+                    { label: "Volume", value: `${(vol / 1000000).toFixed(2)}M`, status: "High" }
+                ]);
             }
 
             // Process Metrics
@@ -371,6 +418,7 @@ export default function StockTrading() {
             // Fallback
             if (stockData[symbol]) {
                 setDynamicStockData(null); // Revert to mock
+                setIndicators(DEFAULT_INDICATORS);
             } else {
                 setDynamicStockData({
                     name: symbol,
@@ -720,7 +768,6 @@ export default function StockTrading() {
                                     { label: "52W High", value: stock.high52w },
                                     { label: "52W Low", value: stock.low52w },
                                     { label: "Avg Volume", value: stock.avgVolume },
-                                    { label: "Industry", value: stock.industry },
                                 ].map((item) => (
                                     <div key={item.label} className="p-3 rounded-lg bg-secondary/30 border border-border/50">
                                         <p className="text-xs text-muted-foreground uppercase tracking-wider">{item.label}</p>
@@ -772,7 +819,7 @@ export default function StockTrading() {
                         </CardHeader>
                         <CardContent>
                             <div className={`grid grid-cols-2 sm:grid-cols-5 gap-4 transition-all duration-300 ${highlightedElement === 'technical' ? 'ring-2 ring-primary rounded-lg p-2' : ''}`}>
-                                {technicalIndicators.map((ind) => (
+                                {indicators.map((ind) => (
                                     <div key={ind.label} className="p-3 rounded-lg bg-secondary/30 border border-border/50">
                                         <p className="text-xs text-muted-foreground">{ind.label}</p>
                                         <p className={`font-bold text-lg ${ind.positive ? "text-success" : ""}`}>{ind.value}</p>
