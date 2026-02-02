@@ -47,27 +47,33 @@ import { parseCSVAsync, parsePDFAsync } from "@/lib/statementParser";
 
 // Milestones will be calculated dynamically based on financials
 
-const insights = [
-  {
-    type: "warning",
-    title: "High spending alert",
-    description: "You've spent 40% more on dining this month compared to your average.",
-    icon: AlertTriangle,
-  },
-  {
-    type: "success",
-    title: "Great savings rate",
-    description: "You're saving 28% of your income, above your 25% target.",
-    icon: CheckCircle2,
-  },
-  {
-    type: "info",
-    title: "Card optimization",
-    description: "Switch to Chase Sapphire for dining to earn 3x points.",
-    icon: Sparkles,
-  },
-];
+// Insights will be generated dynamically based on real data
+// For now, we start with empty or simple rule-based insights
+const generateInsights = (financialData: any) => {
+  const insights = [];
 
+  if (financialData.monthlyExpenses > financialData.monthlyIncome * 0.8) {
+    insights.push({
+      type: "warning",
+      title: "High Spending",
+      description: "Expenses are over 80% of income.",
+      icon: AlertTriangle
+    });
+  }
+
+  if (financialData.savingsRate > 20) {
+    insights.push({
+      type: "success",
+      title: "Good Savings",
+      description: "You are saving more than 20% of your income!",
+      icon: CheckCircle2
+    });
+  }
+
+  return insights;
+};
+
+/* Insights Generation */
 export default function Dashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -81,6 +87,10 @@ export default function Dashboard() {
     addTransactions,
     refreshTransactions
   } = useFinancial();
+
+  // Generate insights based on real data
+  const insights = useMemo(() => generateInsights(financialData), [financialData]);
+
   const [salaryInput, setSalaryInput] = useState(financialData.annualIncome?.toString() || "");
   const [expenseInput, setExpenseInput] = useState(financialData.monthlyExpenses?.toString() || "");
   const [incomeMode, setIncomeMode] = useState<"annual" | "monthly">("annual");
@@ -557,15 +567,50 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Charts Section */}
-        {chartData.length > 0 && (
-          <div className="mt-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Financial Trends</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px] w-full">
+        {/* Recent Transactions & Charts */}
+        <div className="grid gap-6 md:grid-cols-2 mt-8">
+          {/* Recent Transactions */}
+          <Card className="h-full">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Recent Transactions</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => navigate('/spending')}>
+                See All
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {transactions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No transactions found. Upload a statement to get started.</p>
+                ) : (
+                  transactions.slice(0, 5).map((tx: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                          {tx.type === 'income' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{tx.description}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(tx.date).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-emerald-500' : 'text-foreground'}`}>
+                        {tx.type === 'income' ? '+' : '-'}{format(Math.abs(tx.amount))}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Charts Section */}
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Financial Trends</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                       <defs>
@@ -610,15 +655,17 @@ export default function Dashboard() {
                       />
                     </AreaChart>
                   </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    No trend data available.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Quick Actions Section */}
         <QuickActions />
-      </div>
     </DashboardLayout>
-  );
 }
