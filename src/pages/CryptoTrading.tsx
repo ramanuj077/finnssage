@@ -399,7 +399,7 @@ export default function CryptoTrading() {
                             {/* Limit Price (conditional) */}
                             {orderType === "limit" && (
                                 <div className="space-y-2">
-                                    <Label>Limit Price (USD)</Label>
+                                    <Label>Limit Price (INR)</Label>
                                     <div className="relative">
                                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                         <Input
