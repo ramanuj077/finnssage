@@ -3,7 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { aiService } from "@/services/aiService";
 
 // @ts-ignore
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 // Ensure worker is set
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
