@@ -351,16 +351,19 @@ export default function StockTrading() {
         setRealChartData([]); // Reset chart
 
         try {
-            // Fetch everything in parallel
+            // Robust independent fetching
             const now = Math.floor(Date.now() / 1000);
             const threeMonthsAgo = now - (90 * 24 * 60 * 60);
 
-            const [quote, profile, financials, candles] = await Promise.all([
-                finnhubService.getQuote(symbol),
-                finnhubService.getCompanyProfile(symbol),
-                finnhubService.getBasicFinancials(symbol),
-                finnhubService.getCandles(symbol, 'D', threeMonthsAgo, now)
-            ]);
+            let quote: any = { c: 0, d: 0, dp: 0, h: 0, l: 0 };
+            let profile: any = { name: symbol, ticker: symbol, finnhubIndustry: 'N/A', marketCapitalization: 0 };
+            let financials: any = { metric: {} };
+            let candles: any = { s: 'no_data', t: [], c: [], o: [], h: [], l: [], v: [] };
+
+            try { quote = await finnhubService.getQuote(symbol); } catch (e) { console.warn('Quote failed', e); }
+            try { profile = await finnhubService.getCompanyProfile(symbol) || profile; } catch (e) { console.warn('Profile failed', e); }
+            try { financials = await finnhubService.getBasicFinancials(symbol) || financials; } catch (e) { console.warn('Financials failed', e); }
+            try { candles = await finnhubService.getCandles(symbol, 'D', threeMonthsAgo, now) || candles; } catch (e) { console.warn('Candles failed', e); }
 
             // Process Chart Data & Indicators
             if (candles.s === 'ok' && candles.t) {
